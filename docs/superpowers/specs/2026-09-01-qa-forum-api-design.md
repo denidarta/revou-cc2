@@ -23,13 +23,12 @@ write/personal actions; enforce ownership on update/delete.
 
 ## Architecture
 
-Modular monolith, layered Controller → Service → Prisma per module:
+Modular monolith:
 
 - `PrismaModule` — shared `PrismaService` (global module)
-- `AuthModule` — register, login, `JwtStrategy`, `JwtAuthGuard`
-- `UsersModule` — public profile lookup
-- `ThreadsModule` — thread CRUD
-- `CommonModule`/shared — global exception filter, `@CurrentUser()` decorator
+- `AuthModule` — register, login, `JwtStrategy`; guard is `@UseGuards(AuthGuard('jwt'))` from `@nestjs/passport` directly (no wrapper subclass); `@CurrentUser()` is a plain exported decorator function, imported where needed, not a module
+- `UsersModule` — controller injects `PrismaService` directly (single `findUnique` call, no service layer to wrap it)
+- `ThreadsModule` — layered Controller → Service → Prisma (real logic: ownership check, pagination)
 
 Config via `@nestjs/config`, backed by `.env`:
 ```
@@ -38,12 +37,16 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/qa_forum
 JWT_SECRET=<secret>
 JWT_EXPIRES_IN=1h
 ```
+`JWT_EXPIRES_IN` is passed straight through to `@nestjs/jwt`'s `expiresIn`
+option, which accepts `ms`-style strings (`1h`, `7d`, ...) natively — no
+custom parsing needed.
 
 Global `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })`
-applied in `main.ts`. Global exception filter normalizes error responses to:
-```json
-{ "statusCode": 400, "message": "...", "error": "Bad Request" }
-```
+applied in `main.ts`. No custom exception filter — Nest's built-in filter
+already returns `{ statusCode, message, error }` for thrown `HttpException`s
+and a generic `{ statusCode: 500, message: 'Internal server error' }`
+(logged server-side, no stack trace leaked) for uncaught errors, which is
+exactly the shape this API needs.
 
 ## Data Model
 
@@ -116,14 +119,20 @@ the `:id` param route.
 2. Compare `thread.userId` to `req.user.id` (from JWT). Mismatch → 403.
 3. Only then apply update/delete.
 
+This order does reveal, via 403 vs. 404, that a thread exists even to
+non-owners — that distinction is intentional (spec explicitly requires
+403 for the non-owner case) rather than an oversight.
+
 ## Error Handling
 
-Global exception filter maps:
+Relies on NestJS's built-in exception filter — no custom filter needed.
+Services/controllers throw the standard `HttpException` subclasses and
+Nest maps them automatically:
 - `ValidationPipe` failures → 400
 - `UnauthorizedException` (missing/invalid/expired JWT, bad login) → 401
 - `ForbiddenException` (not thread owner) → 403
 - `NotFoundException` (user/thread not found) → 404
-- Uncaught exceptions → 500, logged server-side, generic message to client (no stack trace leak)
+- Uncaught exceptions → 500, logged server-side, generic message to client (no stack trace leak) — Nest default behavior
 
 ## Testing
 
@@ -136,8 +145,9 @@ test database (separate schema or docker-compose service), covering:
 - thread get by id: found (200), not found (404)
 - thread update/delete: owner success, non-owner (403), missing (404), unauthenticated (401)
 
-Light unit tests for service-level logic (e.g., password hashing call,
-ownership comparison) where e2e doesn't already exercise the branch.
+E2e coverage is sufficient — no separate unit tests for hashing calls or
+ownership comparison; asserting those internals directly would couple
+tests to implementation rather than behavior.
 
 ## Documentation Deliverable
 
@@ -150,11 +160,10 @@ Screenshots taken from this UI per submission requirements.
 
 ```
 src/
-  auth/          controller, service, dto, jwt.strategy.ts, jwt-auth.guard.ts
-  users/         controller, service, dto
+  auth/          controller, service, dto, jwt.strategy.ts, current-user.decorator.ts
+  users/         controller (injects PrismaService directly), dto
   threads/       controller, service, dto
   prisma/        prisma.service.ts, prisma.module.ts
-  common/        http-exception.filter.ts, current-user.decorator.ts
   main.ts, app.module.ts
 prisma/
   schema.prisma
