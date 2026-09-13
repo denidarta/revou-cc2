@@ -14,7 +14,7 @@ your own discussion threads.
 
 ## Stack
 
-NestJS (TypeScript) · PostgreSQL · Prisma · JWT (passport-jwt) · bcrypt · Swagger
+NestJS (TypeScript) · PostgreSQL · Prisma · JWT (passport-jwt) · bcrypt · Helmet · Morgan · Swagger
 
 ## Data Model
 
@@ -64,6 +64,9 @@ password is never returned by the API.
    ```
 
 Swagger UI is served at http://localhost:3000/api/docs.
+
+Request logs go to stdout via Morgan: `dev` format normally, `combined` when
+`NODE_ENV=production`. Swagger UI requests are skipped.
 
 ## Environment Variables
 
