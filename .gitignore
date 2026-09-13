@@ -41,3 +41,7 @@ requirement/
 .env
 .env.*
 !.env.example
+
+# agentic
+AGENTS.md
+CLAUDE.md
