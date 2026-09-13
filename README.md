@@ -8,7 +8,8 @@ your own discussion threads.
 - **User management** — register, log in (JWT), and view public profiles.
 - **Thread CRUD** — create, read, update, and delete discussion threads.
 - **Ownership control** — users can only update or delete threads they created.
-- **Validation & error handling** — appropriate HTTP status codes (400, 401, 403, 404, 500).
+- **Rate limiting** — thread creation is capped at 5 requests per minute per user.
+- **Validation & error handling** — appropriate HTTP status codes (400, 401, 403, 404, 429, 500).
 - **Database relations** — one-to-many: a user can create many threads.
 
 ## Stack
@@ -102,7 +103,7 @@ are never exposed.
 
 | Method | Endpoint | Auth | Success | Errors |
 | --- | --- | --- | --- | --- |
-| POST | `/api/threads` | Yes | 201 | 400, 401 |
+| POST | `/api/threads` | Yes | 201 | 400, 401, 429 |
 | GET | `/api/threads` | No | 200 | — |
 | GET | `/api/threads/my-threads` | Yes | 200 | 401 |
 | GET | `/api/threads/:id` | No | 200 | 404 |
@@ -113,3 +114,6 @@ are never exposed.
 (default `10`, max `50`). The response shape is `{ data, page, limit, total }`.
 
 `PUT` and `DELETE` are owner-only — a non-owner receives `403`.
+
+`POST /api/threads` is rate limited to 5 requests per minute per authenticated
+user; exceeding the budget returns `429 Too Many Requests`.

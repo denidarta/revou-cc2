@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ThreadsController } from './threads.controller';
 import { ThreadsService } from './threads.service';
 
@@ -32,7 +33,10 @@ describe('ThreadsController', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [ThreadsController],
       providers: [{ provide: ThreadsService, useValue: threadsService }],
-    }).compile();
+    })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = moduleRef.get(ThreadsController);
   });

@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ThreadsService } from './threads.service';
 import { CreateThreadDto } from './dto/create-thread.dto';
 import { UpdateThreadDto } from './dto/update-thread.dto';
@@ -34,7 +35,7 @@ export class ThreadsController {
   constructor(private readonly threadsService: ThreadsService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), ThrottlerGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new thread' })
   @ApiResponse({
@@ -44,6 +45,7 @@ export class ThreadsController {
   })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   create(@CurrentUser() user: CurrentUser, @Body() dto: CreateThreadDto) {
     return this.threadsService.create(user.id, dto);
   }

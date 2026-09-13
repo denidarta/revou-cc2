@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp, resetDatabase } from './test-app';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { THREAD_CREATE_THROTTLE } from '../src/app.module';
 
 const PASSWORD = 'password123';
 const TITLE = 'How do I set up environment variables?';
@@ -98,6 +99,23 @@ describe('Threads (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ title: TITLE, content: 'short' })
         .expect(400);
+    });
+
+    it('throttles a user that creates too many threads', async () => {
+      const { token } = await registerAndLogin(
+        'spammer',
+        'spammer@example.com',
+      );
+
+      for (let i = 0; i < THREAD_CREATE_THROTTLE.limit; i++) {
+        await createThread(token, `Thread ${i}`, `Content number ${i}`);
+      }
+
+      await request(httpServer())
+        .post('/api/threads')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: 'One too many', content: 'This one should not pass' })
+        .expect(429);
     });
   });
 
