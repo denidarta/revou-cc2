@@ -49,13 +49,10 @@ password is never returned by the API.
    ```bash
    cp .env.example .env
    ```
+   Set `DATABASE_URL` to your Postgres instance (e.g. a Supabase project's
+   connection string — Dashboard -> Connect -> Connection string -> Session pooler).
 
-3. Start Postgres:
-   ```bash
-   docker compose up -d db
-   ```
-
-4. Run migrations:
+3. Run migrations:
    ```bash
    npx prisma migrate dev
    ```
@@ -78,10 +75,10 @@ Swagger UI is served at http://localhost:3000/api/docs.
 
 ## Testing
 
-Requires the test database:
+Requires a separate test database. Set its connection string in
+`DATABASE_URL` (or a test-specific env var, per test config) before running:
 
 ```bash
-docker compose up -d db_test
 npm run test:e2e
 ```
 
