@@ -1,12 +1,12 @@
-import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { PrismaService } from '../prisma/prisma.service';
 import { UserProfileDto } from './dto/user-profile.dto';
+import { UsersService } from './users.service';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Get(':id')
   @ApiOperation({ summary: "Get a user's public profile" })
@@ -16,16 +16,7 @@ export class UsersController {
     type: UserProfileDto,
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async findOne(@Param('id') id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: { id: true, username: true, createdAt: true },
-    });
-
-    if (!user) {
-      throw new NotFoundException('user not found');
-    }
-
-    return user;
+  findOne(@Param('id') id: string) {
+    return this.usersService.findProfile(id);
   }
 }

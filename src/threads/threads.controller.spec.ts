@@ -74,8 +74,14 @@ describe('ThreadsController', () => {
     const updated = { id: 'thread-1', ...dto };
     threadsService.update.mockResolvedValue(updated);
 
-    await expect(controller.update(user, 'thread-1', dto)).resolves.toBe(updated);
-    expect(threadsService.update).toHaveBeenCalledWith(user.id, 'thread-1', dto);
+    await expect(controller.update(user, 'thread-1', dto)).resolves.toBe(
+      updated,
+    );
+    expect(threadsService.update).toHaveBeenCalledWith(
+      user.id,
+      'thread-1',
+      dto,
+    );
   });
 
   it('removes a thread as the authenticated user', async () => {

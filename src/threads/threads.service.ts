@@ -3,111 +3,67 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from './dto/pagination.dto';
 import { CreateThreadDto } from './dto/create-thread.dto';
 import { UpdateThreadDto } from './dto/update-thread.dto';
-import { PaginationDto } from './dto/pagination.dto';
-
-const threadInclude = {
-  user: { select: { id: true, username: true } },
-} as const;
-
-type ThreadWithAuthor = Prisma.ThreadGetPayload<{
-  include: typeof threadInclude;
-}>;
+import { ThreadRepository } from './thread.repository';
 
 @Injectable()
 export class ThreadsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly threads: ThreadRepository) {}
 
-  async create(userId: string, dto: CreateThreadDto) {
-    const thread = await this.prisma.thread.create({
-      data: { userId, title: dto.title, content: dto.content },
-      include: threadInclude,
+  create(userId: string, dto: CreateThreadDto) {
+    return this.threads.create({
+      userId,
+      title: dto.title,
+      content: dto.content,
     });
-    return this.toResponse(thread);
   }
 
   async findAll(pagination: PaginationDto) {
-    const skip = (pagination.page - 1) * pagination.limit;
-
     const [threads, total] = await Promise.all([
-      this.prisma.thread.findMany({
-        skip,
-        take: pagination.limit,
-        orderBy: { createdAt: 'desc' },
-        include: threadInclude,
-      }),
-      this.prisma.thread.count(),
+      this.threads.list(pagination),
+      this.threads.count(),
     ]);
 
     return {
-      data: threads.map((thread) => this.toResponse(thread)),
+      data: threads,
       page: pagination.page,
       limit: pagination.limit,
       total,
     };
   }
 
-  async findMyThreads(userId: string) {
-    const threads = await this.prisma.thread.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      include: threadInclude,
-    });
-    return threads.map((thread) => this.toResponse(thread));
+  findMyThreads(userId: string) {
+    return this.threads.listByUser(userId);
   }
 
   async findOne(id: string) {
-    const thread = await this.prisma.thread.findUnique({
-      where: { id },
-      include: threadInclude,
-    });
+    const thread = await this.threads.findByIdWithAuthor(id);
     if (!thread) {
       throw new NotFoundException('thread not found');
     }
-    return this.toResponse(thread);
+    return thread;
   }
 
   async update(userId: string, id: string, dto: UpdateThreadDto) {
     await this.assertOwner(userId, id);
-
-    const thread = await this.prisma.thread.update({
-      where: { id },
-      data: { title: dto.title, content: dto.content },
-      include: threadInclude,
-    });
-    return this.toResponse(thread);
+    return this.threads.update(id, { title: dto.title, content: dto.content });
   }
 
   async remove(userId: string, id: string) {
     await this.assertOwner(userId, id);
-    await this.prisma.thread.delete({ where: { id } });
+    await this.threads.delete(id);
   }
 
   private async assertOwner(userId: string, id: string) {
-    const thread = await this.prisma.thread.findUnique({
-      where: { id },
-      select: { userId: true },
-    });
+    const ownerId = await this.threads.findOwnerId(id);
 
-    if (!thread) {
+    if (!ownerId) {
       throw new NotFoundException('thread not found');
     }
-    if (thread.userId !== userId) {
+    if (ownerId !== userId) {
       throw new ForbiddenException('you can only modify your own threads');
     }
-  }
-
-  private toResponse(thread: ThreadWithAuthor) {
-    return {
-      id: thread.id,
-      title: thread.title,
-      content: thread.content,
-      createdAt: thread.createdAt,
-      updatedAt: thread.updatedAt,
-      author: thread.user,
-    };
   }
 }

@@ -1,26 +1,16 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../prisma/prisma.service';
+import { ThreadRepository } from './thread.repository';
 import { ThreadsService } from './threads.service';
 
 const AUTHOR = { id: 'user-1', username: 'johndoe' };
 const CREATED_AT = new Date('2026-09-01T00:00:00.000Z');
 const UPDATED_AT = new Date('2026-09-02T00:00:00.000Z');
 
-const THREAD_ROW = {
+const THREAD = {
   id: 'thread-1',
-  userId: AUTHOR.id,
   title: 'How do I set up environment variables?',
   content: 'I keep leaking API keys. How do I use dotenv?',
-  createdAt: CREATED_AT,
-  updatedAt: UPDATED_AT,
-  user: AUTHOR,
-};
-
-const THREAD_RESPONSE = {
-  id: THREAD_ROW.id,
-  title: THREAD_ROW.title,
-  content: THREAD_ROW.content,
   createdAt: CREATED_AT,
   updatedAt: UPDATED_AT,
   author: AUTHOR,
@@ -28,106 +18,92 @@ const THREAD_RESPONSE = {
 
 describe('ThreadsService', () => {
   let service: ThreadsService;
-  let prisma: {
-    thread: {
-      create: jest.Mock;
-      findMany: jest.Mock;
-      count: jest.Mock;
-      findUnique: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
-    };
+  let repository: {
+    create: jest.Mock;
+    findByIdWithAuthor: jest.Mock;
+    list: jest.Mock;
+    count: jest.Mock;
+    listByUser: jest.Mock;
+    update: jest.Mock;
+    delete: jest.Mock;
+    findOwnerId: jest.Mock;
   };
 
   beforeEach(async () => {
-    prisma = {
-      thread: {
-        create: jest.fn(),
-        findMany: jest.fn(),
-        count: jest.fn(),
-        findUnique: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-      },
+    repository = {
+      create: jest.fn(),
+      findByIdWithAuthor: jest.fn(),
+      list: jest.fn(),
+      count: jest.fn(),
+      listByUser: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      findOwnerId: jest.fn(),
     };
 
     const moduleRef = await Test.createTestingModule({
-      providers: [ThreadsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ThreadsService,
+        { provide: ThreadRepository, useValue: repository },
+      ],
     }).compile();
 
     service = moduleRef.get(ThreadsService);
   });
 
   describe('create', () => {
-    it('persists the thread for the current user and maps the author', async () => {
-      prisma.thread.create.mockResolvedValue(THREAD_ROW);
-      const dto = { title: THREAD_ROW.title, content: THREAD_ROW.content };
+    it('delegates to the repository and returns the thread', async () => {
+      repository.create.mockResolvedValue(THREAD);
+      const dto = { title: THREAD.title, content: THREAD.content };
 
       const result = await service.create(AUTHOR.id, dto);
 
-      expect(prisma.thread.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: {
-            userId: AUTHOR.id,
-            title: dto.title,
-            content: dto.content,
-          },
-        }),
-      );
-      expect(result).toEqual(THREAD_RESPONSE);
+      expect(repository.create).toHaveBeenCalledWith({
+        userId: AUTHOR.id,
+        title: dto.title,
+        content: dto.content,
+      });
+      expect(result).toEqual(THREAD);
     });
   });
 
   describe('findAll', () => {
-    it('skips to the requested page and reports the total', async () => {
-      prisma.thread.findMany.mockResolvedValue([THREAD_ROW]);
-      prisma.thread.count.mockResolvedValue(42);
+    it('reports the requested page, limit, and total', async () => {
+      repository.list.mockResolvedValue([THREAD]);
+      repository.count.mockResolvedValue(42);
 
       const result = await service.findAll({ page: 3, limit: 10 });
 
-      expect(prisma.thread.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 20, take: 10 }),
-      );
-      expect(result.page).toBe(3);
-      expect(result.limit).toBe(10);
-      expect(result.total).toBe(42);
-      expect(result.data).toEqual([THREAD_RESPONSE]);
-    });
-
-    it('does not skip on the first page', async () => {
-      prisma.thread.findMany.mockResolvedValue([]);
-      prisma.thread.count.mockResolvedValue(0);
-
-      await service.findAll({ page: 1, limit: 10 });
-
-      expect(prisma.thread.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 0 }),
-      );
+      expect(repository.list).toHaveBeenCalledWith({ page: 3, limit: 10 });
+      expect(result).toEqual({
+        data: [THREAD],
+        page: 3,
+        limit: 10,
+        total: 42,
+      });
     });
   });
 
   describe('findMyThreads', () => {
     it('scopes the query to the current user', async () => {
-      prisma.thread.findMany.mockResolvedValue([THREAD_ROW]);
+      repository.listByUser.mockResolvedValue([THREAD]);
 
       const result = await service.findMyThreads(AUTHOR.id);
 
-      expect(prisma.thread.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: AUTHOR.id } }),
-      );
-      expect(result).toEqual([THREAD_RESPONSE]);
+      expect(repository.listByUser).toHaveBeenCalledWith(AUTHOR.id);
+      expect(result).toEqual([THREAD]);
     });
   });
 
   describe('findOne', () => {
     it('returns the thread with its author', async () => {
-      prisma.thread.findUnique.mockResolvedValue(THREAD_ROW);
+      repository.findByIdWithAuthor.mockResolvedValue(THREAD);
 
-      await expect(service.findOne('thread-1')).resolves.toEqual(THREAD_RESPONSE);
+      await expect(service.findOne('thread-1')).resolves.toEqual(THREAD);
     });
 
     it('throws 404 when the thread does not exist', async () => {
-      prisma.thread.findUnique.mockResolvedValue(null);
+      repository.findByIdWithAuthor.mockResolvedValue(null);
 
       await expect(service.findOne('missing')).rejects.toBeInstanceOf(
         NotFoundException,
@@ -142,67 +118,64 @@ describe('ThreadsService', () => {
     };
 
     it('throws 404 and does not update when the thread does not exist', async () => {
-      prisma.thread.findUnique.mockResolvedValue(null);
+      repository.findOwnerId.mockResolvedValue(null);
 
-      await expect(service.update(AUTHOR.id, 'missing', dto)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
-      expect(prisma.thread.update).not.toHaveBeenCalled();
+      await expect(
+        service.update(AUTHOR.id, 'missing', dto),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(repository.update).not.toHaveBeenCalled();
     });
 
     it('forbids a non-owner and does not update', async () => {
-      prisma.thread.findUnique.mockResolvedValue({ userId: 'someone-else' });
+      repository.findOwnerId.mockResolvedValue('someone-else');
 
       await expect(
         service.update(AUTHOR.id, 'thread-1', dto),
       ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(prisma.thread.update).not.toHaveBeenCalled();
+      expect(repository.update).not.toHaveBeenCalled();
     });
 
     it('updates the thread when the requester owns it', async () => {
-      prisma.thread.findUnique.mockResolvedValue({ userId: AUTHOR.id });
-      prisma.thread.update.mockResolvedValue({ ...THREAD_ROW, ...dto });
+      repository.findOwnerId.mockResolvedValue(AUTHOR.id);
+      repository.update.mockResolvedValue({ ...THREAD, ...dto });
 
       const result = await service.update(AUTHOR.id, 'thread-1', dto);
 
-      expect(prisma.thread.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'thread-1' },
-          data: { title: dto.title, content: dto.content },
-        }),
-      );
+      expect(repository.update).toHaveBeenCalledWith('thread-1', {
+        title: dto.title,
+        content: dto.content,
+      });
       expect(result.title).toBe(dto.title);
-      expect(result.author).toEqual(AUTHOR);
     });
   });
 
   describe('remove', () => {
     it('throws 404 and does not delete when the thread does not exist', async () => {
-      prisma.thread.findUnique.mockResolvedValue(null);
+      repository.findOwnerId.mockResolvedValue(null);
 
       await expect(service.remove(AUTHOR.id, 'missing')).rejects.toBeInstanceOf(
         NotFoundException,
       );
-      expect(prisma.thread.delete).not.toHaveBeenCalled();
+      expect(repository.delete).not.toHaveBeenCalled();
     });
 
     it('forbids a non-owner and does not delete', async () => {
-      prisma.thread.findUnique.mockResolvedValue({ userId: 'someone-else' });
+      repository.findOwnerId.mockResolvedValue('someone-else');
 
-      await expect(service.remove(AUTHOR.id, 'thread-1')).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
-      expect(prisma.thread.delete).not.toHaveBeenCalled();
+      await expect(
+        service.remove(AUTHOR.id, 'thread-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.delete).not.toHaveBeenCalled();
     });
 
     it('deletes the thread when the requester owns it', async () => {
-      prisma.thread.findUnique.mockResolvedValue({ userId: AUTHOR.id });
-      prisma.thread.delete.mockResolvedValue(THREAD_ROW);
+      repository.findOwnerId.mockResolvedValue(AUTHOR.id);
+      repository.delete.mockResolvedValue(undefined);
 
-      await expect(service.remove(AUTHOR.id, 'thread-1')).resolves.toBeUndefined();
-      expect(prisma.thread.delete).toHaveBeenCalledWith({
-        where: { id: 'thread-1' },
-      });
+      await expect(
+        service.remove(AUTHOR.id, 'thread-1'),
+      ).resolves.toBeUndefined();
+      expect(repository.delete).toHaveBeenCalledWith('thread-1');
     });
   });
 });

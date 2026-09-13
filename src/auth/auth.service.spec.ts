@@ -1,9 +1,10 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../prisma/prisma.service';
+import { User } from '../users/entities/user.entity';
+import { DuplicateUserError } from '../users/user.errors';
+import { UserRepository } from '../users/user.repository';
 import { AuthService } from './auth.service';
 
 const REGISTER_DTO = {
@@ -19,19 +20,37 @@ const LOGIN_DTO = {
 
 const CREATED_AT = new Date('2026-09-01T00:00:00.000Z');
 
+type CreateUserInput = {
+  username: string;
+  email: string;
+  passwordHash: string;
+};
+
+type JwtPayload = { sub: string; username: string };
+
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: { user: { create: jest.Mock; findUnique: jest.Mock } };
-  let jwtService: { signAsync: jest.Mock };
+  let users: {
+    create: jest.MockedFunction<(input: CreateUserInput) => Promise<User>>;
+    findByEmail: jest.MockedFunction<(email: string) => Promise<User | null>>;
+  };
+  let jwtService: {
+    signAsync: jest.MockedFunction<(payload: JwtPayload) => Promise<string>>;
+  };
 
   beforeEach(async () => {
-    prisma = { user: { create: jest.fn(), findUnique: jest.fn() } };
-    jwtService = { signAsync: jest.fn() };
+    users = {
+      create: jest.fn<Promise<User>, [CreateUserInput]>(),
+      findByEmail: jest.fn<Promise<User | null>, [string]>(),
+    };
+    jwtService = {
+      signAsync: jest.fn<Promise<string>, [JwtPayload]>(),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: UserRepository, useValue: users },
         { provide: JwtService, useValue: jwtService },
       ],
     }).compile();
@@ -41,7 +60,7 @@ describe('AuthService', () => {
 
   describe('register', () => {
     it('stores a bcrypt hash of the password, never the plaintext', async () => {
-      prisma.user.create.mockResolvedValue({
+      users.create.mockResolvedValue({
         id: 'user-1',
         username: REGISTER_DTO.username,
         email: REGISTER_DTO.email,
@@ -51,15 +70,32 @@ describe('AuthService', () => {
 
       await service.register(REGISTER_DTO);
 
-      const { passwordHash } = prisma.user.create.mock.calls[0][0].data;
-      expect(passwordHash).not.toBe(REGISTER_DTO.password);
-      await expect(bcrypt.compare(REGISTER_DTO.password, passwordHash)).resolves.toBe(
-        true,
-      );
+      const [input] = users.create.mock.calls[0];
+      expect(input.passwordHash).not.toBe(REGISTER_DTO.password);
+      await expect(
+        bcrypt.compare(REGISTER_DTO.password, input.passwordHash),
+      ).resolves.toBe(true);
+    });
+
+    it('passes the credentials to the repository', async () => {
+      users.create.mockResolvedValue({
+        id: 'user-1',
+        username: REGISTER_DTO.username,
+        email: REGISTER_DTO.email,
+        passwordHash: 'super-secret-hash',
+        createdAt: CREATED_AT,
+      });
+
+      await service.register(REGISTER_DTO);
+
+      const [input] = users.create.mock.calls[0];
+      expect(input.username).toBe(REGISTER_DTO.username);
+      expect(input.email).toBe(REGISTER_DTO.email);
+      expect(input.passwordHash).toMatch(/^\$2[aby]\$/);
     });
 
     it('returns the public fields and omits the password hash', async () => {
-      prisma.user.create.mockResolvedValue({
+      users.create.mockResolvedValue({
         id: 'user-1',
         username: REGISTER_DTO.username,
         email: REGISTER_DTO.email,
@@ -78,22 +114,17 @@ describe('AuthService', () => {
       expect(result).not.toHaveProperty('passwordHash');
     });
 
-    it('translates a unique-constraint violation into a 400', async () => {
-      prisma.user.create.mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
-          code: 'P2002',
-          clientVersion: '6.19.3',
-        }),
-      );
+    it('translates DuplicateUserError into a 400', async () => {
+      users.create.mockRejectedValue(new DuplicateUserError());
 
       await expect(service.register(REGISTER_DTO)).rejects.toBeInstanceOf(
         BadRequestException,
       );
     });
 
-    it('rethrows unexpected persistence errors unchanged', async () => {
+    it('rethrows unexpected errors unchanged', async () => {
       const boom = new Error('connection lost');
-      prisma.user.create.mockRejectedValue(boom);
+      users.create.mockRejectedValue(boom);
 
       await expect(service.register(REGISTER_DTO)).rejects.toBe(boom);
     });
@@ -101,7 +132,7 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('rejects an unknown email', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+      users.findByEmail.mockResolvedValue(null);
 
       await expect(service.login(LOGIN_DTO)).rejects.toBeInstanceOf(
         UnauthorizedException,
@@ -109,11 +140,12 @@ describe('AuthService', () => {
     });
 
     it('rejects a wrong password', async () => {
-      prisma.user.findUnique.mockResolvedValue({
+      users.findByEmail.mockResolvedValue({
         id: 'user-1',
         username: 'johndoe',
         email: LOGIN_DTO.email,
         passwordHash: await bcrypt.hash('a-different-password', 10),
+        createdAt: CREATED_AT,
       });
 
       await expect(service.login(LOGIN_DTO)).rejects.toBeInstanceOf(
@@ -122,11 +154,12 @@ describe('AuthService', () => {
     });
 
     it('signs an access token carrying the user id and username', async () => {
-      prisma.user.findUnique.mockResolvedValue({
+      users.findByEmail.mockResolvedValue({
         id: 'user-1',
         username: 'johndoe',
         email: LOGIN_DTO.email,
         passwordHash: await bcrypt.hash(LOGIN_DTO.password, 10),
+        createdAt: CREATED_AT,
       });
       jwtService.signAsync.mockResolvedValue('signed.jwt.token');
 

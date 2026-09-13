@@ -4,18 +4,18 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../prisma/prisma.service';
-import { RegisterDto } from './dto/register.dto';
+import { DuplicateUserError } from '../users/user.errors';
+import { UserRepository } from '../users/user.repository';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 const BCRYPT_COST = 10;
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly users: UserRepository,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -23,12 +23,10 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
 
     try {
-      const user = await this.prisma.user.create({
-        data: {
-          username: dto.username,
-          email: dto.email,
-          passwordHash,
-        },
+      const user = await this.users.create({
+        username: dto.username,
+        email: dto.email,
+        passwordHash,
       });
 
       return {
@@ -38,10 +36,7 @@ export class AuthService {
         createdAt: user.createdAt,
       };
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (error instanceof DuplicateUserError) {
         throw new BadRequestException('username or email already exists');
       }
       throw error;
@@ -49,9 +44,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
+    const user = await this.users.findByEmail(dto.email);
 
     if (!user) {
       throw new UnauthorizedException('invalid credentials');
