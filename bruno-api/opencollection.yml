@@ -2,7 +2,23 @@ opencollection: 1.0.0
 
 info:
   name: bruno-api
-  version: "1.0.0"
+  version: 1.0.0
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+request:
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJVMDAxIiwidXNlcm5hbWUiOiJqb2huZG9lIiwiaWF0IjoxNzg5Mzg5NzU4LCJleHAiOjE3ODkzOTMzNTh9.1WH5jqoPyfq8BB2riRbxNCoRlh4_ZkwqqxLBxR5HqeQ
 
 docs:
   content: |-
@@ -17,7 +33,6 @@ docs:
     runs them, so a full `bru run --env local` walks the whole flow — register,
     log in, then exercise thread CRUD as the authenticated user.
   type: text/markdown
-
 bundled: false
 extensions:
   bruno:

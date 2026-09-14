@@ -25,11 +25,18 @@ One environment lives in [`environments/local.yml`](./environments/local.yml):
 
 | Variable | Default | Filled in by |
 | --- | --- | --- |
-| `baseUrl` | `http://localhost:3000` | environment file (override with `--env-var baseUrl=…`) |
+| `port` | `3000` | environment file — mirror of `PORT` in the root `.env` |
+| `baseUrl` | `http://localhost:{{port}}` | derived from `port` (override with `--env-var baseUrl=…`) |
 | `username` / `email` / `password` | empty | `Auth / Register` (generated per run) |
 | `userId` | empty | `Auth / Register` |
 | `token` | empty | `Auth / Login` |
 | `threadId` | empty | `Threads / Create Thread` |
+
+The port is not re-read from `.env` automatically: keep `port` in `local.yml`
+aligned with `PORT` when you change the latter. `DATABASE_URL`,
+`JWT_SECRET`, and `JWT_EXPIRES_IN` are server-side settings and are
+deliberately **not** copied here — the collection never needs the signing
+secret, and committing it would leak it.
 
 The values marked "filled in by" are held as **runtime variables**
 (`bru.setVar` / `bru.getVar`): they live only for the duration of a run and are
