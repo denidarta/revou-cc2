@@ -1,0 +1,24 @@
+name: local
+variables:
+  # Where the NestJS API is listening. Override per run with
+  # `--env-var baseUrl=http://host:port`.
+  - name: baseUrl
+    value: http://localhost:3000
+
+  # Values below are normally filled in at runtime as *runtime variables*
+  # (bru.setVar in the requests; see README.md). They are listed here only so
+  # you can pre-seed one with `--env-var` to run a single request in isolation,
+  # e.g. `bru run Threads/Get\ Thread.yml --env local --env-var token=<jwt>`.
+  # Nothing here is written to disk by the scripts.
+  - name: token
+    value: ""
+  - name: userId
+    value: ""
+  - name: threadId
+    value: ""
+  - name: username
+    value: ""
+  - name: email
+    value: ""
+  - name: password
+    value: ""

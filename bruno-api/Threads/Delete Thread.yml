@@ -1,0 +1,32 @@
+info:
+  name: Delete Thread
+  type: http
+  seq: 6
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/api/threads/{{threadId}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+  scripts:
+    - type: tests
+      code: |-
+        test("deletes the owner's thread and returns 204", function () {
+          expect(res.status).to.equal(204);
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `DELETE /api/threads/:id` (owner only) — removes the thread and returns an
+  empty `204 No Content`. A non-owner receives `403`; an unknown id `404`.
+
+  The next request proves the deletion actually took effect.

@@ -1,0 +1,37 @@
+info:
+  name: "[401] Create Thread Without Token"
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/threads"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Anonymous post",
+        "content": "This request intentionally omits the bearer token."
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+  scripts:
+    - type: tests
+      code: |-
+        test("rejects unauthenticated thread creation", function () {
+          expect(res.status).to.equal(401);
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Negative case: this request sets no `auth` block, so no `Authorization` header
+  is sent and `POST /api/threads` returns `401 Unauthorized`.

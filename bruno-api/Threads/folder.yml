@@ -1,0 +1,13 @@
+info:
+  name: Threads
+  type: folder
+  seq: 4
+docs: |-
+  Thread CRUD.
+
+  **Create Thread** stores the new id in `{{threadId}}`, which the read, update,
+  and delete requests reuse. Mutating requests send
+  `Authorization: Bearer {{token}}`, so run **Auth / Register → Login** first.
+
+  Creating threads is rate limited to 5 requests/minute per authenticated user;
+  exceeding the budget returns `429`.

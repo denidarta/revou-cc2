@@ -1,0 +1,32 @@
+info:
+  name: Get Thread
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/threads/{{threadId}}"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: tests
+      code: |-
+        test("returns the thread with its author", function () {
+          expect(res.status).to.equal(200);
+          expect(res.body.id).to.equal(bru.getVar("threadId"));
+          expect(res.body.title).to.equal("How do I set up environment variables?");
+          expect(res.body.author).to.deep.equal({
+            id: bru.getVar("userId"),
+            username: bru.getVar("username")
+          });
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /api/threads/:id` (public) — fetches a single thread by id.

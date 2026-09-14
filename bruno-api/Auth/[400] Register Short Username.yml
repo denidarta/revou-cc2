@@ -1,0 +1,39 @@
+info:
+  name: "[400] Register Short Username"
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/auth/register"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "username": "ab",
+        "email": "bruno_bad_username@example.com",
+        "password": "password123"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+  scripts:
+    - type: tests
+      code: |-
+        test("rejects a username shorter than 3 characters", function () {
+          expect(res.status).to.equal(400);
+          expect(res.body.statusCode).to.equal(400);
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Negative case: `username` must be 3–30 characters, so `"ab"` is rejected with
+  `400 Bad Request`.

@@ -1,0 +1,9 @@
+info:
+  name: Users
+  type: folder
+  seq: 3
+docs: |-
+  Public user profiles.
+
+  `GET /api/users/:id` exposes `id`, `username`, and `createdAt` only — never
+  `email` or the password hash. Uses `{{userId}}` from **Auth / Register**.

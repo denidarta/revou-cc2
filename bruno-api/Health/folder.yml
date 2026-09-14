@@ -1,0 +1,7 @@
+info:
+  name: Health
+  type: folder
+  seq: 1
+docs: |-
+  Liveness probe. Run this first to confirm the API is reachable before
+  exercising the rest of the collection.

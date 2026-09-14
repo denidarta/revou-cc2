@@ -1,0 +1,28 @@
+info:
+  name: Check Health
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/health"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: tests
+      code: |-
+        test("reports the service is up", function () {
+          expect(res.status).to.equal(200);
+          expect(res.body).to.deep.equal({ status: "ok" });
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /api/health` — returns `{ "status": "ok" }` while the service is
+  running. No authentication required.

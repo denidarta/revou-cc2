@@ -1,0 +1,68 @@
+info:
+  name: Register
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/auth/register"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "username": "{{username}}",
+        "email": "{{email}}",
+        "password": "{{password}}"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+  scripts:
+    - type: before-request
+      code: |-
+        // Fresh credentials every run so a shared database does not trip the
+        // unique constraints on username/email.
+        const stamp = Date.now();
+        bru.setVar("username", "bruno_" + stamp);
+        bru.setVar("email", "bruno_" + stamp + "@example.com");
+        bru.setVar("password", "password123");
+    - type: after-response
+      code: |-
+        // Runtime variables are scoped to this run and never written to disk.
+        if (res.status === 201 && res.body && res.body.id) {
+          bru.setVar("userId", res.body.id);
+        }
+    - type: tests
+      code: |-
+        test("creates the user and returns 201", function () {
+          expect(res.status).to.equal(201);
+          expect(res.body.id).to.be.a("string");
+        });
+        test("returns the public record that was submitted", function () {
+          expect(res.body.username).to.equal(bru.getVar("username"));
+          expect(res.body.email).to.equal(bru.getVar("email"));
+          expect(res.body.createdAt).to.be.a("string");
+        });
+        test("never exposes the password", function () {
+          expect(res.body).to.not.have.property("password");
+          expect(res.body).to.not.have.property("passwordHash");
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /api/auth/register` — creates a user and returns `id`, `username`,
+  `email`, and `createdAt`. The password is hashed with bcrypt and never
+  returned.
+
+  Validation: `username` 3–30 chars, valid `email`, `password` ≥ 8 chars.
+  Duplicate username/email returns `400`.
+
+  Stores the new user id in `{{userId}}`.

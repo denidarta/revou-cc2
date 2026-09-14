@@ -1,0 +1,39 @@
+info:
+  name: "[400] Register Invalid Email"
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/auth/register"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "username": "bruno_bad_email",
+        "email": "not-an-email",
+        "password": "password123"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+  scripts:
+    - type: tests
+      code: |-
+        test("rejects a malformed email with 400", function () {
+          expect(res.status).to.equal(400);
+          expect(res.body.statusCode).to.equal(400);
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Negative case: `email` must be a valid email address, so a malformed value is
+  rejected with `400 Bad Request` by the global validation pipe.

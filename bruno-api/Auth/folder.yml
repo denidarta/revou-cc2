@@ -1,0 +1,14 @@
+info:
+  name: Auth
+  type: folder
+  seq: 2
+docs: |-
+  Registration and login.
+
+  Run **Register** before **Login**: Register generates fresh credentials each
+  run (so the collection is repeatable against a shared database) and stores
+  the new `{{userId}}`; Login exchanges those credentials for a JWT and stores
+  it in `{{token}}` for the authenticated Users and Threads requests.
+
+  The `[400]`/`[401]` requests are deliberate negative cases and assert the
+  error status the API documents.

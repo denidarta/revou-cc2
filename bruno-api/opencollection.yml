@@ -1,0 +1,26 @@
+opencollection: 1.0.0
+
+info:
+  name: bruno-api
+  version: "1.0.0"
+
+docs:
+  content: |-
+    Executable tests for the Q&A Forum API (NestJS + Prisma) in the repository
+    root.
+
+    Start the service with `npm run start:dev` (default `http://localhost:3000`),
+    select the `local` environment, then run the folders in order: **Health**,
+    **Auth**, **Users**, **Threads**.
+
+    Folder `seq` numbers and request `seq` numbers are the order the Bruno CLI
+    runs them, so a full `bru run --env local` walks the whole flow — register,
+    log in, then exercise thread CRUD as the authenticated user.
+  type: text/markdown
+
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git

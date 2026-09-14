@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
+import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ThreadsModule } from './threads/threads.module';
@@ -29,6 +30,7 @@ export const THROTTLER_CONFIG: ThrottlerModuleOptions = {
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot(THROTTLER_CONFIG),
     PrismaModule,
+    HealthModule,
     AuthModule,
     UsersModule,
     ThreadsModule,

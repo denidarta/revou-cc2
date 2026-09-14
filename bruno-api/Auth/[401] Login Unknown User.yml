@@ -1,0 +1,42 @@
+info:
+  name: "[401] Login Unknown User"
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/auth/login"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{unknownEmail}}",
+        "password": "password123"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+  scripts:
+    - type: before-request
+      code: |-
+        // Guaranteed-not-registered address, so this stays a true 401.
+        bru.setVar("unknownEmail", "ghost_" + Date.now() + "@example.com");
+    - type: tests
+      code: |-
+        test("rejects credentials for an unknown user", function () {
+          expect(res.status).to.equal(401);
+          expect(res.body.statusCode).to.equal(401);
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Negative case: logging in with an email that does not exist returns
+  `401 Unauthorized` with a generic `invalid credentials` message.

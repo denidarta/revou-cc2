@@ -1,0 +1,43 @@
+info:
+  name: List Threads
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/threads"
+  params:
+    - name: page
+      value: "1"
+      type: query
+    - name: limit
+      value: "10"
+      type: query
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: tests
+      code: |-
+        test("returns the pagination envelope", function () {
+          expect(res.status).to.equal(200);
+          expect(res.body.data).to.be.an("array");
+          expect(res.body.page).to.equal(1);
+          expect(res.body.limit).to.equal(10);
+          expect(res.body.total).to.be.a("number");
+        });
+        test("lists the thread created above", function () {
+          const ids = res.body.data.map((thread) => thread.id);
+          expect(ids).to.include(bru.getVar("threadId"));
+        });
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /api/threads` (public) — newest first, paginated as
+  `{ data, page, limit, total }`. `?page` defaults to 1, `?limit` to 10
+  (max 50).
