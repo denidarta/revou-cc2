@@ -79,12 +79,21 @@ Request logs go to stdout via Morgan: `dev` format normally, `combined` when
 
 ## Testing
 
-Requires a separate test database. Set its connection string in
-`DATABASE_URL` (or a test-specific env var, per test config) before running:
+Requires a separate test database (the template points at port `5433`). Create
+the test env file before running:
+
+```bash
+cp .env.test.example .env.test
+```
+
+Then run:
 
 ```bash
 npm run test:e2e
 ```
+
+`test:e2e` loads `.env.test` (via `dotenv-cli`), applies pending migrations, and
+runs the e2e suite in band.
 
 ## API
 
